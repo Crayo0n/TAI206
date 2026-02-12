@@ -48,3 +48,4 @@ async def consultaOP(id:Optional[int]=None):
         return {"Mensaje":"Usuario no encontrado"}
     else:
         return {"Aviso":"No se proporciono ID"}
+    
