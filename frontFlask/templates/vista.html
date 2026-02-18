@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>Usuarios</title>
+</head>
+
+<body>
+    <h2>Agregar Usuarios</h2>
+    <br>
+    <form action="/guardar" method="POST">
+        <label>ID de Usuario</label>
+        <input type="number" name="id_usuario" placeholder="ID del usuario">
+
+        <label>Nombre</label>
+        <input type="text" name="nombre" placeholder="Nombre">
+
+        <label>Edad</label>
+        <input type="number" name="edad" placeholder="Edad del usuario">
+
+        <button type="submit">Guardar Usuario</button>
+
+    </form>
+
+    <br>
+    <br>
+    <h2>Lista de Usuarios</h2>
+
+
+    <table>
+        <thead>
+            <td>ID</td>
+            <td>Nombre</td>
+            <td>Edad</td>
+            <td>Acciones</td>
+        </thead>
+        <tbody>
+            {% for usuario in usuarios %}
+            <tr>
+                <td>{{ usuario.id }}</td>
+                <td>{{ usuario.nombre }}</td>
+                <td>{{ usuario.edad }}</td>
+                <td><a href="/eliminar/{{ usuario.id }}">Eliminar</a></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+
+</html>
