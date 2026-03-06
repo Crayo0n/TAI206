@@ -1,0 +1,160 @@
+#importaciones
+#uvicorn main:app --reload
+
+from fastapi import FastAPI, status, HTTPException, Depends
+import asyncio
+from typing import Optional
+from pydantic import BaseModel, Field
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from datetime import datetime, timedelta
+import secrets
+import jwt
+
+#Configuración de JWT
+SECRET_KEY = "mi_clave"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 1
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+#Inicialización de la aplicación
+app = FastAPI(
+    title='Mi primer API',
+    description='Mauricio Rodriguez Molina',
+    version='1.0'
+)
+
+usuarios=[
+    {"id":1,"nombre":"Mauricio","edad":20},
+    {"id":2,"nombre":"Dulce","edad":20},
+    {"id":3,"nombre":"Saul","edad":19}
+]
+
+#Modelo de validacion Pydantic
+class UsuarioBase(BaseModel):
+    id: int = Field(..., gt=0, description="Identificador de usuario", example="1")
+    nombre: str = Field(..., min_length=3, max_length=50, description="Nombre del usuario")
+    edad: int = Field(..., ge=0, le=121, description="Edad valida entre 0 y 121")
+        
+#Función para crear el token
+def crear_token(data: dict):
+    datos_token = data.copy()
+    expiracion= datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    datos_token.update({"exp": expiracion})
+    return jwt.encode(datos_token, SECRET_KEY, algorithm=ALGORITHM)
+
+#Validación del token
+def verificar_token(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        usuario=payload.get("sub")
+        
+        if usuario is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token no valido",
+            )
+        return usuario
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Tu sesión ha expirado, por favor inicia sesión de nuevo",
+        )
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token no valido",
+        )
+    
+    
+#Endpoints
+@app.post("/login", tags=['Autenticación'])
+async def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    if form_data.username == "admin" and form_data.password == "1234":
+        token = crear_token({"sub": form_data.username})
+        return {"access_token": token, "token_type": "bearer"}
+    
+    raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos")
+
+
+@app.get("/", tags=['Inicio'])
+async def hola_mundo():
+    return {"mensaje": "Hola Mundo FastAPI"}
+
+@app.get("/bienvenidos", tags=['Inicio'])
+async def bienvenido():
+    return {"mensaje": "Bienvenidos a tu API rest con FastAPI"}
+
+@app.get("/v1/calificaciones", tags=['Asincronia'])
+async def calificaciones():
+    await asyncio.sleep(6)
+    return {"mensaje": "Tu calificación en TAI es 10"}
+
+@app.get("/v1/parametroO/{id}", tags=['Parametro Obligatorio'])
+async def consultaU(id:int):
+    await asyncio.sleep(3)
+    return {"usuario encontrado": id}
+
+@app.get("/v1/parametro_op/", tags=['Parametro Opcional'])
+async def consultaOP(id:Optional[int]=None):
+    await asyncio.sleep(3)
+    if id is not None:
+        for usuario in usuarios:
+            if usuario["id"]==id:
+                return {"usuario encontrado": id, 
+                        "Datos":usuario}
+        return {"Mensaje":"Usuario no encontrado"}
+    else:
+        return {"Aviso":"No se proporciono ID"}
+
+@app.get("/v1/usuarios/", tags=['CRUD Usuarios'])
+async def consultaUsuarios():
+    return {
+        "status": "200",
+        "total":len(usuarios),
+        "data": usuarios
+    }
+    
+@app.post("/v1/usuarios/", tags=['CRUD Usuarios'])
+async def agregar_Usuario(usuario:UsuarioBase):
+    for usr in usuarios:
+        if usr["id"]==usuario.id:
+            raise HTTPException(
+                status_code=400,
+                detail="El id ya existe"
+            )
+    usuarios.append(usuario)
+    return{
+        "mensaje":"Usuario Agregado",
+        "datos":usuario,
+        "status": "200"
+    }
+
+@app.put("/v1/usuarios/{id}", tags=['CRUD Usuarios'])
+async def editar_Usuario(id: int, usuario_actualizado: dict, usuario_autenticado: str = Depends(verificar_token)):
+    for i, usr in enumerate(usuarios):
+        if usr["id"] == id:
+            usuarios[i] = usuario_actualizado
+            return {
+                "mensaje": "Usuario Editado con éxito",
+                "autorizado_por": usuario_autenticado  
+            }
+    
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND,
+        detail="Usuario no encontrado"
+    )
+    
+@app.delete("/v1/usuarios/{id}", tags=['CRUD Usuarios'])
+async def eliminar_Usuario(id:int, usuario_autenticado: str = Depends(verificar_token)):
+    for i, usr in enumerate(usuarios):
+        if usr["id"]==id:
+            usuarios.pop(i)
+            return{
+                "mensaje":f"Usuario Eliminado correctamente por {usuario_autenticado}",
+                "status": "200"
+            }
+    raise HTTPException(
+        status_code=400,
+        detail="Usuario no encontrado"
+    )
