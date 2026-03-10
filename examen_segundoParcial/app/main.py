@@ -5,8 +5,7 @@ from pydantic import BaseModel, Field
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 import secrets
 from datetime import date,datetime
-
-from miAPI.app.main import UsuarioBase
+#uvicorn main:app --reload
 
 #Inicialización de la aplicación
 app = FastAPI(
@@ -24,7 +23,7 @@ class Citas(BaseModel):
     paciente: str = Field(..., min_length=5, description="Nombre del paciente")
     fecha: int = Field(..., le=fecha_actual)
     motivo: str = Field(..., max_length=100)
-    confirmacion: bool = Field(..., default= 0)
+    confirmacion: bool = Field(..., default= False)
     
     
     
@@ -93,11 +92,19 @@ async def consultar_Cita(id:int):
         status_code=404,
         detail="Cita no encontrada"
     )
-    raise HTTPException(status_code=404, detail="Libro no encontrado en la biblioteca")
 
 
 #Confirmar Citas
-
+@app.get("/v1/citas/confirmar/{id}", tags=['CRUD Citas'])
+async def confirmar_Cita(id:int):
+    for cita in citas:
+        if cita["id"]==id:
+            cita["confirmacion"] = True
+            return cita
+    raise HTTPException(
+        status_code=404,
+        detail="Cita no encontrada"
+    )
 
 
 #Eliminar Citas
